@@ -10,6 +10,8 @@ from app.core.settings import get_settings
 from app.schemas.weather import WeatherResponse, MultiCityWeatherResponse
 
 router = APIRouter(tags=["Weather"])
+MAX_CITIES_PER_REQUEST = 3
+INVALID_CITIES_DETAIL = "Provide between 1 and 3 unique non-empty cities."
 
 
 def init_weather_api_state(app: FastAPI) -> None:
@@ -53,6 +55,27 @@ async def _execute_weather_operation(operation: Callable[[], Awaitable[Any]]) ->
     except UpstreamError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
+
+def _normalize_cities(cities: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for city in cities:
+        value = city.strip()
+        if not value:
+            continue
+        lowered = value.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        normalized.append(value)
+    return normalized
+
+
+async def _run_with_rate_limit(request: Request, operation: Callable[[], Awaitable[Any]]) -> Any:
+    await request.app.state.weather_rate_limiter.check(_client_ip(request))
+    return await operation()
+
+
 @router.get(
     "/weather",
     response_model=WeatherResponse,
@@ -66,9 +89,8 @@ async def _execute_weather_operation(operation: Callable[[], Awaitable[Any]]) ->
 )
 async def get_weather(request: Request, city: str = Query(..., min_length=1)):
     async def _operation():
-        await request.app.state.weather_rate_limiter.check(_client_ip(request))
         return await request.app.state.weather_service.get_weather(city)
-    return await _execute_weather_operation(_operation)
+    return await _execute_weather_operation(lambda: _run_with_rate_limit(request, _operation))
 
 
 @router.get(
@@ -87,22 +109,11 @@ async def get_weather_for_cities(
     request: Request,
     cities: list[str] = Query(..., description="Provide 1-3 cities using repeated query params."),
 ):
-    normalized = []
-    seen = set()
-    for city in cities:
-        value = city.strip()
-        if not value:
-            continue
-        lowered = value.lower()
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        normalized.append(value)
+    normalized = _normalize_cities(cities)
 
-    if not normalized or len(normalized) > 3:
-        raise HTTPException(status_code=400, detail="Provide between 1 and 3 unique non-empty cities.")
+    if not normalized or len(normalized) > MAX_CITIES_PER_REQUEST:
+        raise HTTPException(status_code=400, detail=INVALID_CITIES_DETAIL)
 
     async def _operation():
-        await request.app.state.weather_rate_limiter.check(_client_ip(request))
         return await request.app.state.weather_service.get_weather_for_cities(cities=normalized)
-    return await _execute_weather_operation(_operation)
+    return await _execute_weather_operation(lambda: _run_with_rate_limit(request, _operation))

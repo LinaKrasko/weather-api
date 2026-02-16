@@ -23,7 +23,7 @@ class WeatherService:
         self.mapper = mapper or WeatherMapper()
 
     async def get_weather(self, city: str) -> dict[str, Any]:
-        cache_key = city.strip().lower()
+        cache_key = self._cache_key(city)
         cached = await self.cache.get(cache_key)
         if cached is not None:
             await self._log_cache_hit(cached, city)
@@ -42,6 +42,10 @@ class WeatherService:
             "requested_cities": cities,
             "weather": weather_items,
         }
+
+    @staticmethod
+    def _cache_key(city: str) -> str:
+        return city.strip().lower()
 
     async def _log_cache_hit(self, payload: dict[str, Any], city: str) -> None:
         await self.event_logger.log(
