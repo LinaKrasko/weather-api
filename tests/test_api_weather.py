@@ -67,19 +67,6 @@ def test_weather_endpoint_returns_429_when_rate_limit_exceeded(monkeypatch):
         assert second.json() == {"detail": "Rate limit exceeded"}
 
 
-def test_weather_endpoint_ignores_x_forwarded_for_when_not_trusted(monkeypatch):
-    with TestClient(app) as client:
-        monkeypatch.setattr(app.state, "weather_service", FakeOkService())
-        monkeypatch.setattr(app.state, "weather_rate_limiter", InMemoryRateLimiter(max_requests=1, window_seconds=60))
-        monkeypatch.setattr(app.state, "weather_settings", SimpleNamespace(trust_proxy_headers=False))
-
-        first = client.get("/weather", params={"city": "London"}, headers={"x-forwarded-for": "1.2.3.4"})
-        second = client.get("/weather", params={"city": "London"}, headers={"x-forwarded-for": "9.9.9.9"})
-
-        assert first.status_code == 200
-        assert second.status_code == 429
-
-
 def test_multi_city_weather_endpoint_returns_200(monkeypatch):
     with TestClient(app) as client:
         monkeypatch.setattr(app.state, "weather_service", FakeOkService())

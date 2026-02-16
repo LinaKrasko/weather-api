@@ -14,7 +14,7 @@ Simple async weather service that fetches data from OpenWeatherMap and demonstra
 - Cache with TTL (`CACHE_TTL_SECONDS`, default `300`)
 - Saves JSON files on cache miss in `DATA_DIR`
 - Logs events to SQLite (`EVENTS_DB_PATH`)
-- Per-client rate limiting (`RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS`)
+- Simple per-IP rate limiting
 - CI on push/PR via GitHub Actions
 
 ## Project Structure
@@ -95,128 +95,9 @@ docker compose up --build
 7. Open docs:
 - `http://localhost:8000/docs`
 
-## API Examples
-Use Postman with `GET` requests:
-
-1. Current weather (single city)
-- Method: `GET`
-- URL: `http://localhost:8000/weather`
-- Query Params:
-  - `city=London`
-
-2. Current weather (multiple cities, up to 3)
-- Method: `GET`
-- URL: `http://localhost:8000/weather/cities`
-- Query Params:
-  - `cities=London`
-  - `cities=Paris`
-
-Notes:
-- In Postman, add `cities` key multiple times (one value per city).
-- You can still test interactively from `http://localhost:8000/docs`.
-
-## Response Types and Examples
-1. `GET /weather?city=London`
-- Response type: JSON object
-- Example:
-```json
-{
-  "city": "London",
-  "timestamp": 1771174431,
-  "temp_c": 4.51,
-  "humidity": 98,
-  "description": "light intensity drizzle",
-  "source": "openweathermap"
-}
-```
-
-2. `GET /weather/cities?cities=Rehovot&cities=Paris`
-- Response type: JSON object containing an array of weather objects
-- Example:
-```json
-{
-  "requested_cities": ["Rehovot", "Paris"],
-  "weather": [
-    {
-      "city": "Rehovot",
-      "timestamp": 1771174431,
-      "temp_c": 19.23,
-      "humidity": 53,
-      "description": "clear sky",
-      "source": "openweathermap"
-    },
-    {
-      "city": "Paris",
-      "timestamp": 1771174431,
-      "temp_c": 4.51,
-      "humidity": 98,
-      "description": "light intensity drizzle",
-      "source": "openweathermap"
-    }
-  ]
-}
-```
-
-## Saved Data Examples
-1. JSON file saved in `DATA_DIR` (example file `paris_1771174431211.json`):
-```json
-{
-  "city": "Paris",
-  "timestamp": 1771174431,
-  "temp_c": 4.51,
-  "humidity": 98,
-  "description": "light intensity drizzle",
-  "source": "openweathermap"
-}
-```
-
-2. SQLite event row in `weather_events` table (example values):
-```text
-id=23
-city=Paris
-weather_timestamp=1771174431
-file_path=cache
-cache_hit=1
-logged_at=1771174431
-```
-
-## Negative Path Results
-1. Too many cities:
-- Request: `/weather/cities?cities=London&cities=Paris&cities=Berlin&cities=Rome`
-- Status: `400`
-- Response:
-```json
-{
-  "detail": "Provide between 1 and 3 unique non-empty cities."
-}
-```
-
-2. Invalid city:
-- Status: `404`
-- Response example:
-```json
-{
-  "detail": "City not found: NoSuchCity"
-}
-```
-
-3. Rate limit exceeded:
-- Status: `429`
-- Response:
-```json
-{
-  "detail": "Rate limit exceeded"
-}
-```
-
-4. Upstream provider failure:
-- Status: `502`
-- Response example:
-```json
-{
-  "detail": "OpenWeatherMap error: 401"
-}
-```
+## API Usage
+- Interactive API documentation: `http://localhost:8000/docs`
+- Use `/docs` as the source of truth for endpoint parameters, response shapes, and error models.
 
 ## Testing
 Run all tests:
@@ -232,32 +113,18 @@ What tests cover:
 2. `tests/test_weather_service.py`
 - weather cache miss saves file and logs miss
 - weather cache hit skips new file save and logs cache hit
-- concurrent weather requests behavior without single-flight dedupe
 - multi-city weather behavior and per-city cache checks
 
 3. `tests/test_api_weather.py`
 - API returns `404` for city not found
 - API returns `429` when rate limit is exceeded
-- trusted/untrusted proxy-header behavior for client IP detection
 - `/weather/cities` success and `400` validation case for too many cities
 
 ## CI/CD
-GitHub Actions workflow: `.github/workflows/ci.yml`
-
-Triggers:
+GitHub Actions CI is configured in `.github/workflows/ci.yml`.
+It runs automatically on:
 - `push`
 - `pull_request`
-
-Job:
-1. checkout repo
-2. setup Python 3.11
-3. install requirements
-4. run `pytest`
-
-## Notes
-- Rate limiting is per client IP.
-- `x-forwarded-for` is used only when `TRUST_PROXY_HEADERS=true`.
-- In-memory cache/rate-limiter state resets on process restart.
 
 ## Quick Verification Checklist
 1. Open Swagger docs:

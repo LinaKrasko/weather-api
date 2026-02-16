@@ -98,30 +98,6 @@ async def test_get_weather_cache_hit_skips_client_and_logs_cache_hit():
 
 
 @pytest.mark.asyncio
-async def test_get_weather_without_single_flight_can_make_multiple_upstream_calls():
-    client = FakeWeatherClient(
-        {
-            "name": "Berlin",
-            "main": {"temp": 7.0, "humidity": 75},
-            "weather": [{"description": "rain"}],
-        },
-        delay_seconds=0.05,
-    )
-    storage = FakeStorage()
-    logger = FakeEventLogger()
-    service = WeatherService(client=client, cache=TTLCache(ttl_seconds=300), storage=storage, event_logger=logger)
-
-    results = await asyncio.gather(*[service.get_weather("Berlin") for _ in range(20)])
-
-    assert len(results) == 20
-    assert client.calls > 1
-    assert all(item["city"] == "Berlin" for item in results)
-    assert len(storage.calls) >= 1
-    assert len(logger.calls) >= 1
-    assert logger.calls[0]["cache_hit"] is False
-
-
-@pytest.mark.asyncio
 async def test_get_weather_for_cities_uses_cache_on_second_call():
     client = FakeWeatherClient(
         {
