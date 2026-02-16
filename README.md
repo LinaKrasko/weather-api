@@ -105,20 +105,10 @@ Run all tests:
 python -m pytest -q
 ```
 
-What tests cover:
-1. `tests/test_ttl_cache.py`
-- cache value returned before expiry
-- cache value expires after TTL
-
-2. `tests/test_weather_service.py`
-- weather cache miss saves file and logs miss
-- weather cache hit skips new file save and logs cache hit
-- multi-city weather behavior and per-city cache checks
-
-3. `tests/test_api_weather.py`
-- API returns `404` for city not found
-- API returns `429` when rate limit is exceeded
-- `/weather/cities` success and `400` validation case for too many cities
+Tests are intentionally minimal smoke checks to validate CI wiring:
+1. `tests/test_ttl_cache.py`: basic set/get cache path
+2. `tests/test_weather_service.py`: basic service call returns mapped payload
+3. `tests/test_api_weather.py`: basic `/weather` endpoint returns `200`
 
 ## CI/CD
 GitHub Actions CI is configured in `.github/workflows/ci.yml`.

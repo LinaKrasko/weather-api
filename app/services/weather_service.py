@@ -1,3 +1,4 @@
+import asyncio
 import time
 from typing import Any
 from app.clients.weather_client import WeatherClient
@@ -36,9 +37,7 @@ class WeatherService:
         return weather
 
     async def get_weather_for_cities(self, cities: list[str]) -> dict[str, Any]:
-        weather_items: list[dict[str, Any]] = []
-        for city in cities:
-            weather_items.append(await self.get_weather(city))
+        weather_items = await asyncio.gather(*(self.get_weather(city) for city in cities))
         return {
             "requested_cities": cities,
             "weather": weather_items,
