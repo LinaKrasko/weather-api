@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from typing import Any
 from app.clients.weather_client import WeatherClient
@@ -6,6 +7,9 @@ from app.cache.ttl_cache import TTLCache
 from app.storage.weather_storage import WeatherStorage
 from app.events.weather_event_logger import WeatherEventLogger
 from app.services.weather_mapper import WeatherMapper
+
+logger = logging.getLogger(__name__)
+
 
 class WeatherService:
     def __init__(
@@ -26,7 +30,7 @@ class WeatherService:
         cache_key = self._cache_key(city)
         cached = await self.cache.get(cache_key)
         if cached is not None:
-            await self._log_cache_hit(cached, city)
+            self._log_cache_hit_in_background(cached, city)
             return cached
 
         raw = await self.client.fetch_current_weather(city)
@@ -54,6 +58,17 @@ class WeatherService:
             file_path="cache",
             cache_hit=True,
         )
+
+    def _log_cache_hit_in_background(self, payload: dict[str, Any], city: str) -> None:
+        task = asyncio.create_task(self._log_cache_hit(payload, city))
+        task.add_done_callback(self._handle_background_log_result)
+
+    @staticmethod
+    def _handle_background_log_result(task: asyncio.Task[None]) -> None:
+        try:
+            task.result()
+        except Exception:
+            logger.exception("Cache-hit logging failed")
 
     async def _persist_and_log_miss(self, payload: dict[str, Any], city: str) -> None:
         payload_city = payload.get("city", city)

@@ -90,7 +90,11 @@ async def _run_with_rate_limit(request: Request, operation: Callable[[], Awaitab
 async def get_weather(request: Request, city: str = Query(..., min_length=1)):
     async def _operation():
         return await request.app.state.weather_service.get_weather(city)
-    return await _execute_weather_operation(lambda: _run_with_rate_limit(request, _operation))
+
+    async def _operation_with_rate_limit():
+        return await _run_with_rate_limit(request, _operation)
+
+    return await _execute_weather_operation(_operation_with_rate_limit)
 
 
 @router.get(
@@ -116,4 +120,8 @@ async def get_weather_for_cities(
 
     async def _operation():
         return await request.app.state.weather_service.get_weather_for_cities(cities=normalized)
-    return await _execute_weather_operation(lambda: _run_with_rate_limit(request, _operation))
+
+    async def _operation_with_rate_limit():
+        return await _run_with_rate_limit(request, _operation)
+
+    return await _execute_weather_operation(_operation_with_rate_limit)
