@@ -135,3 +135,8 @@ It runs automatically on:
 docker compose down
 docker compose up --build
 ```
+
+## Diagrams
+```bash
+https://excalidraw.com/#json=-qcPTwXU-O7zAFVWs3GzJ,IC4PThXFtgX0Ug3MHUZJhQ
+```
